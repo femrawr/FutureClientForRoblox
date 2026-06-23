@@ -70,6 +70,14 @@ local gui = {
     notifsBase = nil
 }
 
+local function isFunctionEmpty(func)
+    local constants = #debug.getconstants(func)
+    local protos = #debug.getprotos(func)
+    local upvalues = #debug.getupvalues(func)
+
+    return constants + protos + upvalues == 0
+end
+
 function gui:Create(class, props)
     if not class then
         return
@@ -732,7 +740,7 @@ function gui:LoadConfig(name)
     end)
 
     if not ok then
-        warn('[GUI] Failed to load config: ' .. name)
+        warn('[future] [gui.LoadConfig] failed to load config "' .. name .. '"')
         return
     end
 
@@ -780,7 +788,7 @@ function gui:LoadGUIConfig()
     end)
 
     if not ok then
-        warn('[GUI] Failed to load GUIconfig.json')
+        warn('[future] [gui.LoadGUIConfig] failed to load gui config')
         return
     end
 
@@ -1061,6 +1069,7 @@ function gui:AddModule(args, window, parent, api, order)
 
     keybindButton.MouseButton1Click:Connect(function()
         gui:PlayClickSound()
+
         if not api.recording then
             api.recording = true
             keybindLabel.Text = 'Press a Key...'
@@ -1076,7 +1085,15 @@ function gui:AddModule(args, window, parent, api, order)
         if api.recording and not InputService:GetFocusedTextBox() and input.KeyCode.Name ~= 'Unknown' then
             api.recording = false
             keybindButton.BackgroundTransparency = 1
-            api.SetKeybind(input.KeyCode.Name == 'Escape' and args.DefaultKeybind or input.KeyCode.Name)
+
+            if input.KeyCode.Name == 'Escape' then
+                moduleApi.SetKeybind(args.DefaultKeybind)
+            elseif input.KeyCode.Name == moduleApi.keybind then
+                moduleApi.SetKeybind(nil)
+            else
+                moduleApi.SetKeybind(input.KeyCode.Name)
+            end
+
             return
         end
 
@@ -1103,6 +1120,11 @@ function gui:AddModule(args, window, parent, api, order)
     end
 
     function api.Toggle(bool, skipSound, isConfigLoad, viaKeybind)
+        if isFunctionEmpty(args.Function) then
+            gui:Notify(args.Name, 'This module has not been implemented yet.', 1.5)
+            return
+        end
+
         local doToggle = bool ~= nil and bool or not api.enabled
         button.BackgroundTransparency = doToggle and 0.35 or 0.85
         api.enabled = doToggle
@@ -1141,6 +1163,7 @@ function gui:AddModule(args, window, parent, api, order)
 
     button.MouseButton1Click:Connect(api.Toggle)
     button.MouseButton2Click:Connect(api.Expand)
+
     gear.MouseButton1Click:Connect(api.Expand)
 
     self:Connect(moduleLayout:GetPropertyChangedSignal('AbsoluteContentSize'), api.Update)
@@ -1218,6 +1241,7 @@ function gui:AddToggle(args, parent, container, window)
         local doToggle = bool ~= nil and bool or not api.enabled
         toggle.BackgroundTransparency = doToggle and 0.35 or 1
         api.enabled = doToggle
+
         args.Function(doToggle)
 
         if not skipSound then
@@ -1225,7 +1249,7 @@ function gui:AddToggle(args, parent, container, window)
         end
     end
 
-    if args.Default ~= nil then
+    if args.Default then
         api.Toggle(args.Default, true)
     end
 
@@ -1404,8 +1428,9 @@ function gui:AddSlider(args, parent, container, window)
             and math.floor((math.clamp(value, min, max) * (10 ^ roundVal)) + 0.5) / (10 ^ roundVal)
             or math.clamp(value, args.RealMin or -math.huge, args.RealMax or math.huge)
 
-        local displayVal = math.floor((math.clamp(value, min, max) * (10 ^ roundVal)) + 0.5) / (10 ^ roundVal)
         api.value = value
+
+        local displayVal = math.floor((math.clamp(value, min, max) * (10 ^ roundVal)) + 0.5) / (10 ^ roundVal)
         fill.Size = UDim2.new((displayVal - min) / (max - min), 0, 1, 0)
 
         nameLabel.Text = args.Name .. ' <font color=\'rgb(170, 170, 170)\'>' .. tostring(value) .. '</font>'
