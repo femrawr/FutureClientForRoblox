@@ -324,10 +324,10 @@ do
         Function = function(callback)
             if not callback then
                 for _, v in connections do
-					pcall(v.Enable, v)
-				end
+                    pcall(v.Enable, v)
+                end
 
-				table.clear(connections)
+                table.clear(connections)
                 return
             end
 
@@ -341,7 +341,6 @@ do
             end
         end
     })
-
 end
 
 do

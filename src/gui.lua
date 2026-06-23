@@ -13,17 +13,17 @@ local Signal = fetchScript('classes/signal')
 local Maid = fetchScript('classes/maid')
 
 local configIgnore = {
-    'ConfigOptionsButton', 'DestructOptionsButton', 'HUDOptionsButton',
-    'ClickGuiOptionsButton', 'ColorsOptionsButton', 'DiscordOptionsButton',
-    'HUDOptionsButtonNotificationsToggle', 'ColorsOptionsButtonRainbowToggle',
-    'ClickGuiOptionsButtonClickSoundsToggle', 'HUDOptionsButtonArrayListToggle',
-    'HUDOptionsButtonListBackgroundToggle', 'HUDOptionsButtonListLinesToggle',
-    'HUDOptionsButtonWatermarkToggle', 'HUDOptionsButtonWMLineToggle',
-    'HUDOptionsButtonWMBackgroundToggle', 'HUDOptionsButtonRenderingSelector',
-    'HUDOptionsButtonFPSToggle', 'HUDOptionsButtonSpeedToggle',
-    'HUDOptionsButtonCoordsToggle', 'HUDOptionsButtonPingToggle',
-    'RestartOptionsButton', 'FontOptionsButton',
-    'FontOptionsButtonTextSizeSlider', 'ConfigOptionsButtonConfigNameTextbox'
+    'ConfigModule', 'DestructModule', 'HUDModule',
+    'ClickGuiModule', 'ColorsModule', 'DiscordModule',
+    'HUDModuleNotificationsToggle', 'ColorsModuleRainbowToggle',
+    'ClickGuiModuleClickSoundsToggle', 'HUDModuleArrayListToggle',
+    'HUDModuleListBackgroundToggle', 'HUDModuleListLinesToggle',
+    'HUDModuleWatermarkToggle', 'HUDModuleWMLineToggle',
+    'HUDModuleWMBackgroundToggle', 'HUDModuleRenderingSelector',
+    'HUDModuleFPSToggle', 'HUDModuleSpeedToggle',
+    'HUDModuleCoordsToggle', 'HUDModulePingToggle',
+    'RestartModule', 'FontModule', 'FontModuleTextSizeSlider',
+    'ConfigModuleConfigNameTextbox'
 }
 
 local drawingClasses = {
@@ -373,7 +373,7 @@ function gui:RefreshArrayList()
     local sorted = {}
 
     for _, v in next, self.objects do
-        if v.type == 'Module' and not table.find(configIgnore, v.name .. 'OptionsButton') and v.api.enabled then
+        if v.type == 'Module' and not table.find(configIgnore, v.name .. 'Module') and v.api.enabled then
             table.insert(sorted, v)
         end
     end
@@ -936,7 +936,7 @@ function gui:AddModule(args, window, parent, api, order)
     }
 
     local button = self:Create('TextButton', {
-        Name = args.Name .. 'OptionsButton',
+        Name = args.Name .. 'Module',
         BackgroundColor3 = self:GetColor(),
         BackgroundTransparency = 0.85,
         BorderSizePixel = 0,
@@ -1087,11 +1087,11 @@ function gui:AddModule(args, window, parent, api, order)
             keybindButton.BackgroundTransparency = 1
 
             if input.KeyCode.Name == 'Escape' then
-                moduleApi.SetKeybind(args.DefaultKeybind)
-            elseif input.KeyCode.Name == moduleApi.keybind then
-                moduleApi.SetKeybind(nil)
+                api.SetKeybind(args.DefaultKeybind)
+            elseif input.KeyCode.Name == api.keybind then
+                api.SetKeybind(nil)
             else
-                moduleApi.SetKeybind(input.KeyCode.Name)
+                api.SetKeybind(input.KeyCode.Name)
             end
 
             return
@@ -1169,7 +1169,7 @@ function gui:AddModule(args, window, parent, api, order)
     self:Connect(moduleLayout:GetPropertyChangedSignal('AbsoluteContentSize'), api.Update)
     self:Connect(childrenLayout:GetPropertyChangedSignal('AbsoluteContentSize'), api.Update)
 
-    self.objects[button.Name] = {
+    self.objects[args.Name] = {
         name = args.Name,
         api = api,
         instance = button,
@@ -1179,7 +1179,9 @@ function gui:AddModule(args, window, parent, api, order)
         arrayText = args.ArrayText
     }
 
-    local methods = {}
+    local methods = setmetatable({}, {
+        __index = api
+    })
 
     function methods:AddToggle(args)
         return gui:AddToggle(args, button, moduleContainer, window)

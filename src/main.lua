@@ -75,6 +75,10 @@ gui:Connect(localPlayer.OnTeleport, function(state)
     executed = true
 
     queueonteleport([[
+        if future_dev then
+            getgenv().future_dev = true
+        end
+
         loadstring(game:HttpGet('https://raw.githubusercontent.com/femrawr/FutureClientForRoblox/refs/heads/main/src/loader.lua', true))()
     ]])
 end)
