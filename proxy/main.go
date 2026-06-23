@@ -57,6 +57,8 @@ func main() {
 
 	switch args[0] {
 	case "b", "build":
+		os.RemoveAll(futureClientPath)
+
 		err := os.MkdirAll(futureClientPath, 0666)
 		if err != nil {
 			fmt.Printf("[!] failed to create future client folder - %v", err)
