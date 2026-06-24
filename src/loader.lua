@@ -18,7 +18,7 @@ local function fetchScript(name, bypass)
             return nil
         end
 
-        local func, err = loadstring(res.Body)
+        local func, err = loadstring(res)
         if err then
             warn('[future] [loader.fetchScript] failed to load "' .. name .. '" -', err)
             return nil
