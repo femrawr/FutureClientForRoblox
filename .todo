@@ -13,3 +13,10 @@ universal:
 - xray
 - fastfall
 - fake player
+
+blood zone:
+- grenade on death
+- tp on downed
+- no cam shake
+- fake downed
+- player tp

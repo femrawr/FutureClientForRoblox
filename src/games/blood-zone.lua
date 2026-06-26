@@ -4,18 +4,28 @@ end
 
 local ReplicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local SoundService = cloneref(game:GetService('SoundService'))
+local Players = cloneref(game:GetService('Players'))
 
 local Maid = fetchScript('classes/maid')
+
+local player = fetchScript('utils/player')
 
 local remotes = ReplicatedStorage.Remotes
 local modules = ReplicatedStorage.Modules
 
+local localPlayer = Players.LocalPlayer
+
 local maid = Maid.new()
+
+repeat
+    task.wait()
+until localPlayer:HasTag('HasLoadedData') and not localPlayer:HasTag('LoadingUser')
 
 local recoilFunc
 local shootLoopFunc
 local shootHandlerFunc
 local anticheatFunc
+local crouchFunc
 
 for _, v in next, getgc() do
     if typeof(v) ~= 'function' then
@@ -32,6 +42,8 @@ for _, v in next, getgc() do
         shootHandlerFunc = v
     elseif name == 'Punishment' then
         anticheatFunc = v
+    elseif name == 'CrouchAction' then
+        crouchFunc = v
     end
 end
 
@@ -102,6 +114,10 @@ do
 end
 
 do
+    local commonUtils = require(modules.Utility.Util)
+
+    local oldRandomizeUnit
+
     future.combat:AddModule({
         Name = 'NoRecoil',
         Function = function(callback)
@@ -131,15 +147,36 @@ do
                 end
 
                 gun.Shooting = input == Enum.UserInputState.Begin
-          		if not gun.Shooting then return end
+                  if not gun.Shooting then return end
 
                 if gun.Settings.CurrentAmmo.Value <= 0 then
-    				SoundService.Client.AmmoOut:Play()
-    				gun:AttemptAutoLoad()
-    				return
-    			end
+                    SoundService.Client.AmmoOut:Play()
+                    gun:AttemptAutoLoad()
+                    return
+                end
 
-    			shootLoopFunc(gun)
+                shootLoopFunc(gun)
+            end)
+        end
+    })
+
+    future.combat:AddModule({
+        Name = 'NoSpread',
+        Function = function(callback)
+            if not callback then
+                restorefunction(commonUtils.RandomizeUnit)
+                oldRandomizeUnit = nil
+                return
+            end
+
+            oldRandomizeUnit = hookfunction(commonUtils.RandomizeUnit, function(...)
+                local trace = debug.traceback()
+                if not trace:find('WeaponClient.GunClient') then
+                    return oldRandomizeUnit(...)
+                end
+
+                local direction = ({...})[1]
+                return CFrame.lookAlong(Vector3.new(0, 0, 0), direction).LookVector
             end)
         end
     })
@@ -170,7 +207,6 @@ end
 do
     future.exploits:AddModule({
         Name = 'ClientDisabler',
-        Default = true,
         Function = function(callback)
             if not callback then
                 restorefunction(anticheatFunc)
@@ -180,6 +216,50 @@ do
             hookfunction(anticheatFunc, function(_, kind, ban)
                 future.gui:Notify('Client Disabler', 'Anticheat ' .. (ban and 'ban' or 'kick') .. ' function blocked - ' .. kind)
                 return nil
+            end)
+        end
+    })
+end
+
+do
+    future.misc:AddModule({
+        Name = 'FakeKnocked',
+        Function = function(callback)
+            local root, hum = player.getRoot()
+            if not root or not hum then return end
+
+            root.Parent:SetAttribute('Downed', callback)
+
+            hum.HipHeight = callback and -1.9 or 0
+        end
+    })
+end
+
+do
+    local oldCrouch
+
+    future.movement:AddModule({
+        Name = 'NoCrouchSlow',
+        Function = function(callback)
+            if not callback then
+                restorefunction(crouchFunc)
+                oldCrouch = nil
+                return
+            end
+
+            oldCrouch = hookfunction(crouchFunc, function(self, crouch)
+                if self.Crouching == crouch then
+                    return oldCrouch(self, crouch)
+                end
+
+                if crouch then
+                    self:EmoteFinished()
+                end
+
+                self.Crouching = crouch
+                self.Humanoid.HipHeight = crouch and -1.2 or 0
+                self.Humanoid.WalkSpeed = 18
+                self.Humanoid.JumpHeight = 7.2
             end)
         end
     })
