@@ -9,7 +9,7 @@ local Lighting = cloneref(game:GetService('Lighting'))
 
 local Maid = fetchScript('classes/maid')
 
-local player = fetchScript('utils/player')
+local playerUtils = fetchScript('utils/player')
 
 local localPlayer = Players.LocalPlayer
 
@@ -29,7 +29,7 @@ do
             end
 
             maid.spinbot = RunService.Stepped:Connect(function()
-                local root, hum = player.getRoot()
+                local root, hum = playerUtils.getRoot()
                 if not root then return end
 
                 if airOnly.enabled and hum and hum.FloorMaterial ~= Enum.Material.Air then
@@ -72,36 +72,111 @@ end
 do
     local range
     local smoothness
+    local aiming
     local selection
-    local target
+    local part
     local circle
+    local mouse
     local ignoreFriends
     local healthCheck
     local teamCheck
     local invisCheck
     local shieldCheck
     local wallCheck
+    local focusTarget
+    local prediction
+    local predictionMode
+
+    local fovCircle = future.gui:Create('Circle', {
+        Transparency = 1,
+        Color = future.gui:GetColor(),
+        Radius = 100,
+        Thickness = 1,
+        Visible = false
+    })
 
     local aimbot = future.combat:AddModule({
         Name = 'Aimbot',
         Function = function(callback)
+            if not callback then
+                maid.aimbot = nil
+                fovCircle.Visible = false
+                return
+            end
 
+            maid.aimbot = RunService.RenderStepped:Connect(function()
+                local mousePos = InputService:GetMouseLocation()
+
+                fovCircle.Visible = circle.enabled and selection.value == 'Mouse'
+                fovCircle.Radius = range.value
+                fovCircle.Position = mousePos
+
+                local mouseDown = InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+                if not mouseDown and mouse.enabled then return end
+
+                local target = playerUtils[selection.value == 'Mouse' and 'getCloseToMouse' or 'getCloseToRoot'](range.value, {
+                    health = healthCheck.enabled,
+                    team = teamCheck.enabled,
+                    invis = invisCheck.enabled,
+                    shield = shieldCheck.enabled,
+                    wall = wallCheck.enabled
+                })
+
+                if not target then return end
+
+                local character = target.Character
+                if not character then return end
+
+                local camera = workspace.CurrentCamera
+                if not camera then return end
+
+                local targetPart = part.value == 'Closest'
+                    and playerUtils.getPartCloseToMouse(character, mousePos)
+                    or character:FindFirstChild(part.value == 'Head' and 'Head' or 'HumanoidRootPart')
+
+                if not targetPart then return end
+
+                if aiming.value == 'Mouse' then
+                    local vector, visible = camera:WorldToViewportPoint(targetPart.Position)
+                    if not visible then return end
+
+                    vector = Vector2.new(vector.X, vector.Y)
+
+                    local final = (vector - mousePos) / smoothness.value
+                    mousemoverel(final.X, final.Y)
+                else
+                    camera.CFrame = camera.CFrame:Lerp(
+                        CFrame.lookAt(camera.CFrame.Position, targetPart.Position),
+                        1 / smoothness.value
+                    )
+                end
+            end)
+        end,
+        ArrayText = function()
+            return part.value
         end
     })
 
     range = aimbot:AddSlider({
         Name = 'Range',
-        Min = 1,
-        Max = 200,
-        Default = 100,
+        Min = 20,
+        Max = 500,
+        Default = 250,
         Function = function() end
     })
 
     smoothness = aimbot:AddSlider({
         Name = 'Smoothness',
-        Min = 0,
-        Max = 50,
-        Default = 0,
+        Min = 1,
+        Max = 20,
+        Default = 1,
+        Function = function() end
+    })
+
+    aiming = aimbot:AddSelector({
+        Name = 'AimWith',
+        List = { 'Mouse', 'Camera' },
+        Default = 'Mouse',
         Function = function() end
     })
 
@@ -112,10 +187,29 @@ do
         Function = function() end
     })
 
-    target = aimbot:AddSelector({
-        Name = 'Mode',
+    part = aimbot:AddSelector({
+        Name = 'Target',
         List = { 'Head', 'Root', 'Closest' },
         Default = 'Head',
+        Function = function(val)
+            if not aimbot.enabled then
+                return
+            end
+
+            aimbot.Toggle(nil, true)
+            aimbot.Toggle(nil, true)
+        end
+    })
+
+    circle = aimbot:AddToggle({
+        Name = 'DrawCircle',
+        Default = true,
+        Function = function() end
+    })
+
+    mouse = aimbot:AddToggle({
+        Name = 'RequireRightClick',
+        Default = true,
         Function = function() end
     })
 
@@ -152,6 +246,25 @@ do
     wallCheck = aimbot:AddToggle({
         Name = 'IgnoreBehindWalls',
         Default = false,
+        Function = function() end
+    })
+
+    focusTarget = aimbot:AddToggle({
+        Name = 'FocusTarget',
+        Default = false,
+        Function = function() end
+    })
+
+    prediction = aimbot:AddToggle({
+        Name = 'Prediction',
+        Default = false,
+        Function = function() end
+    })
+
+    predictionMode = aimbot:AddSelector({
+        Name = 'PredictionMode',
+        List = { 'MoveDirection', 'Velocity' },
+        Default = 'MoveDirection',
         Function = function() end
     })
 end
@@ -252,7 +365,7 @@ do
             end
 
             maid.fly = RunService.Stepped:Connect(function(dt)
-                local root, hum = player.getRoot()
+                local root, hum = playerUtils.getRoot()
                 if not root or not hum then return end
 
                 if InputService:IsKeyDown(Enum.KeyCode.LeftControl) and not InputService:GetFocusedTextBox() then
@@ -408,7 +521,7 @@ do
             end
 
             maid.speed = RunService.Stepped:Connect(function(dt)
-                local root, hum = player.getRoot()
+                local root, hum = playerUtils.getRoot()
                 if not root or not hum then return end
 
                 local realSpeed = speed.value * (mode.value == 'Velocity' and 2 or 0.005)
@@ -649,7 +762,7 @@ do
                 return
             end
 
-            local root = player.getRoot()
+            local root = playerUtils.getRoot()
             if not root then
                 fakePlayer.Toggle()
                 return
